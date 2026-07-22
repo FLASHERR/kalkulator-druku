@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Druk 3D">
+<title>Kalkulator kosztów druku 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#181a1f;
+    --bg-dot: rgba(255,255,255,0.035);
+    --surface:#22252c;
+    --surface-2:#2a2e36;
+    --border:#383c46;
+    --text:#eef0f3;
+    --text-muted:#9aa0ac;
+    --text-faint:#6b7180;
+    --orange:#ff6a1f;
+    --orange-dim:rgba(255,106,31,0.15);
+    --blue:#4fc3d9;
+    --blue-dim:rgba(79,195,217,0.15);
+    --purple:#a875d1;
+    --purple-dim:rgba(168,117,209,0.15);
+    --green:#6bcb77;
+    --green-dim:rgba(107,203,119,0.15);
+    --gold:#d9a441;
+    --gold-dim:rgba(217,164,65,0.15);
+    --slate:#8b93a1;
+    --slate-dim:rgba(139,147,161,0.15);
+    --pink:#ff4f9a;
+    --pink-dim:rgba(255,79,154,0.15);
+    --radius:16px;
+    --radius-sm:10px;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--bg);
+    background-image:radial-gradient(circle, var(--bg-dot) 1px, transparent 1px);
+    background-size:20px 20px;
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:100px;
+  }
+  .shell{max-width:520px;margin:0 auto;padding:20px 16px 8px;}
+  header.top{padding:6px 4px 18px;}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--orange);
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:var(--font-display);
+    font-size:26px;
+    font-weight:700;
+    margin:0 0 4px;
+    letter-spacing:-0.01em;
+  }
+  .sub{color:var(--text-muted);font-size:14px;margin:0;line-height:1.5;}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:12px;
+  }
+  .card h2{
+    font-family:var(--font-display);
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    margin:0 0 14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .card h2 .dot{width:7px;height:7px;border-radius:50%;display:inline-block;}
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;min-width:0;}
+  .field{margin-bottom:12px;}
+  .field:last-child{margin-bottom:0;}
+  label{
+    display:block;
+    font-size:12.5px;
+    color:var(--text-muted);
+    margin-bottom:6px;
+    font-weight:500;
+  }
+  label .unit{color:var(--text-faint);font-weight:400;}
+  input[type=text], input[type=number], select, textarea{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--font-mono);
+    font-size:16px;
+    padding:11px 12px;
+    border-radius:var(--radius-sm);
+    min-height:44px;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  select{font-family:var(--font-body);}
+  textarea{font-family:var(--font-body);resize:vertical;min-height:60px;}
+  input::placeholder, textarea::placeholder{color:var(--text-faint);}
+  input:focus, select:focus, textarea:focus{
+    outline:2px solid var(--orange);
+    outline-offset:1px;
+    border-color:var(--orange);
+  }
+  input:disabled, select:disabled{opacity:.42;cursor:not-allowed;}
+  .checkbox-field{display:flex;align-items:center;gap:9px;}
+  .checkbox-field input{width:18px;height:18px;min-height:0;flex:none;accent-color:var(--orange);}
+  .checkbox-field label{margin:0;color:var(--text);font-size:13.5px;}
+
+  /* summary */
+  .summary{
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:rgba(24,26,31,0.92);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px 16px 16px;
+    margin-bottom:16px;
+  }
+  .summary-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;}
+  .summary-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);}
+  .summary-total{font-family:var(--font-display);font-size:30px;font-weight:700;color:var(--orange);line-height:1;}
+  .stack{
+    display:flex;
+    width:100%;
+    height:22px;
+    border-radius:6px;
+    overflow:hidden;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+  }
+  .stack .seg{
+    height:100%;
+    background-image:repeating-linear-gradient(135deg, rgba(255,255,255,0.16) 0 3px, transparent 3px 7px);
+    transition:flex-basis .25s ease;
+    min-width:0;
+  }
+  .seg.material{background-color:var(--orange);}
+  .seg.energy{background-color:var(--blue);}
+  .seg.depreciation{background-color:var(--gold);}
+  .seg.consumables{background-color:var(--slate);}
+  .seg.labor{background-color:var(--pink);}
+  .seg.extra{background-color:var(--purple);}
+  .seg.margin{background-color:var(--green);}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:10px;font-size:11.5px;font-family:var(--font-mono);color:var(--text-muted);}
+  .legend .item{display:flex;align-items:center;gap:6px;min-width:0;}
+  .legend .sw{width:9px;height:9px;border-radius:2px;flex:none;}
+  .legend .sw.material{background:var(--orange);}
+  .legend .sw.energy{background:var(--blue);}
+  .legend .sw.depreciation{background:var(--gold);}
+  .legend .sw.consumables{background:var(--slate);}
+  .legend .sw.labor{background:var(--pink);}
+  .legend .sw.extra{background:var(--purple);}
+  .legend .sw.margin{background:var(--green);}
+  .legend b{color:var(--text);font-weight:500;}
+
+  /* buttons */
+  .btn-row{display:flex;gap:10px;margin:16px 0 8px;}
+  button{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:14.5px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--border);
+    padding:13px 14px;
+    min-height:46px;
+    cursor:pointer;
+    background:var(--surface-2);
+    color:var(--text);
+    flex:1;
+  }
+  button.primary{background:var(--orange);border-color:var(--orange);color:#1a0d05;}
+  button.ghost{background:transparent;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button:active:not(:disabled){transform:translateY(1px);}
+
+  .hint{font-size:12px;color:var(--text-faint);margin:6px 2px 0;line-height:1.5;}
+
+  /* history / lists */
+  .hist-item{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-sm);
+    padding:12px 14px;
+    margin-bottom:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+  .hist-main{min-width:0;}
+  .hist-name{font-weight:600;font-size:14px;margin:0 0 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .hist-meta{font-family:var(--font-mono);font-size:11.5px;color:var(--text-muted);}
+  .hist-price{font-family:var(--font-mono);font-weight:600;color:var(--orange);font-size:14px;white-space:nowrap;}
+  .hist-actions{display:flex;gap:6px;}
+  .icon-btn{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);
+    width:34px;height:34px;border-radius:8px;font-size:14px;flex:none;padding:0;min-height:0;
+  }
+  .empty-hist{color:var(--text-faint);font-size:13px;text-align:center;padding:14px 0;}
+
+  .subpanel{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;margin-top:10px;}
+  .subpanel h3{font-family:var(--font-display);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin:0 0 12px;}
+
+  .quick-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+
+  footer.note{
+    text-align:center;
+    color:var(--text-faint);
+    font-size:11.5px;
+    padding:20px 10px 10px;
+    line-height:1.6;
+  }
+  @media (prefers-reduced-motion: reduce){
+    .stack .seg{transition:none;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="top">
+    <p class="eyebrow">// warstwa po warstwie</p>
+    <h1>Kalkulator kosztów druku 3D</h1>
+    <p class="sub">Wpisz parametry wydruku, dostań gotową wycenę i wyślij znajomemu krótkie PDF.</p>
+  </header>
+
+  <div class="summary" id="summary">
+    <div class="summary-top">
+      <span class="summary-label">Cena końcowa</span>
+      <span class="summary-total" id="totalPrice">0,00 zł</span>
+    </div>
+    <div class="stack" id="stack">
+      <div class="seg material"></div>
+      <div class="seg energy"></div>
+      <div class="seg depreciation"></div>
+      <div class="seg consumables"></div>
+      <div class="seg labor"></div>
+      <div class="seg extra"></div>
+      <div class="seg margin"></div>
+    </div>
+    <div class="legend">
+      <span class="item"><span class="sw material"></span>materiał <b id="legMaterial">0,00 zł</b></span>
+      <span class="item"><span class="sw energy"></span>energia <b id="legEnergy">0,00 zł</b></span>
+      <span class="item"><span class="sw depreciation"></span>amortyzacja <b id="legDepreciation">0,00 zł</b></span>
+      <span class="item"><span class="sw consumables"></span>eksploatacja <b id="legConsumables">0,00 zł</b></span>
+      <span class="item"><span class="sw labor"></span>robocizna <b id="legLabor">0,00 zł</b></span>
+      <span class="item"><span class="sw extra"></span>dodatkowe <b id="legExtra">0,00 zł</b></span>
+      <span class="item"><span class="sw margin"></span>marża <b id="legMargin">0,00 zł</b></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--orange)"></span>Projekt</h2>
+    <div class="field">
+      <label for="pname">Nazwa projektu</label>
+      <input type="text" id="pname" placeholder="np. Uchwyt na telefon">
+    </div>
+    <div class="field">
+      <label for="precipient">Dla kogo <span class="unit">(opcjonalnie)</span></label>
+      <input type="text" id="precipient" placeholder="np. Kasia">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--gold)"></span>Drukarka</h2>
+    <div class="field">
+      <label for="printerSelect">Profil drukarki</label>
+      <select id="printerSelect"></select>
+    </div>
+    <div class="hint" id="printerInfo"></div>
+    <button class="ghost" id="btnManagePrinters" type="button" style="margin-top:10px;width:100%;">Zarządzaj profilami</button>
+    <div id="printerPanel" style="display:none;">
+      <div id="printerList" style="margin-top:12px;"></div>
+      <div class="subpanel">
+        <h3 id="printerFormTitle">+ Nowy profil</h3>
+        <div class="field">
+          <label for="newPrinterName">Nazwa</label>
+          <input type="text" id="newPrinterName" placeholder="np. Bambu A1">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="newPrinterPower">Moc <span class="unit">W</span></label>
+            <input type="number" id="newPrinterPower" min="0" step="5">
+          </div>
+          <div class="field">
+            <label for="newPrinterPrice">Cena zakupu <span class="unit">zł</span></label>
+            <input type="number" id="newPrinterPrice" min="0" step="1">
+          </div>
+        </div>
+        <div class="field">
+          <label for="newPrinterLifespan">Żywotność <span class="unit">godz.</span></label>
+          <input type="number" id="newPrinterLifespan" min="1" step="100" value="5000">
+        </div>
+        <button class="primary" id="btnAddPrinter" type="button" style="width:100%;">Dodaj profil</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--orange)"></span>Materiał</h2>
+    <div class="row">
+      <div class="field">
+        <label for="material">Rodzaj</label>
+        <select id="material"></select>
+      </div>
+      <div class="field">
+        <label for="pricePerKg">Cena <span class="unit">zł/kg</span></label>
+        <input type="number" id="pricePerKg" min="0" step="0.01" inputmode="decimal">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="weightG">Waga wydruku <span class="unit">g</span></label>
+        <input type="number" id="weightG" min="0" step="1" inputmode="decimal" placeholder="np. 85">
+      </div>
+      <div class="field">
+        <label for="waste">Zapas na nieudane <span class="unit">%</span></label>
+        <input type="number" id="waste" min="0" step="1" inputmode="decimal" value="0">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--blue)"></span>Druk i czas</h2>
+    <div class="row">
+      <div class="field">
+        <label for="hours">Czas druku <span class="unit">godz.</span></label>
+        <input type="number" id="hours" min="0" step="1" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="minutes">+ minuty</label>
+        <input type="number" id="minutes" min="0" max="59" step="1" inputmode="numeric" placeholder="0">
+      </div>
+    </div>
+    <div class="field">
+      <label for="energyPrice">Cena prądu <span class="unit">zł/kWh</span></label>
+      <input type="number" id="energyPrice" min="0" step="0.01" inputmode="decimal">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--slate)"></span>Eksploatacja i robocizna</h2>
+    <div class="field">
+      <label for="consumablesFee">Zużycie eksploatacyjne <span class="unit">zł / wydruk</span></label>
+      <input type="number" id="consumablesFee" min="0" step="0.1" inputmode="decimal">
+    </div>
+    <div class="hint">Dysza, podkładka, prąd na rozgrzanie stołu itp. — stała opłata doliczana do każdego wydruku.</div>
+    <div class="row" style="margin-top:12px;">
+      <div class="field">
+        <label for="laborHours">Twój czas <span class="unit">godz.</span></label>
+        <input type="number" id="laborHours" min="0" step="0.25" inputmode="decimal" placeholder="np. 0.5">
+      </div>
+      <div class="field">
+        <label for="laborRate">Stawka <span class="unit">zł/godz.</span></label>
+        <input type="number" id="laborRate" min="0" step="1" inputmode="decimal">
+      </div>
+    </div>
+    <div class="hint">Przygotowanie w slicerze, usuwanie podpór, czyszczenie.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--purple)"></span>Dodatkowe koszty i marża</h2>
+    <div class="row">
+      <div class="field">
+        <label for="extraCost">Koszty dodatkowe <span class="unit">zł</span></label>
+        <input type="number" id="extraCost" min="0" step="1" inputmode="decimal" value="0">
+      </div>
+      <div class="field">
+        <label for="margin">Marża <span class="unit">%</span></label>
+        <input type="number" id="margin" min="0" step="1" inputmode="decimal" value="20">
+      </div>
+    </div>
+    <div class="hint">Koszty dodatkowe: np. wkręty, magnesy, insert gwintowany.</div>
+    <div class="field checkbox-field" style="margin-top:14px;">
+      <input type="checkbox" id="costOnly">
+      <label for="costOnly">Po kosztach (bliska rodzina)</label>
+    </div>
+    <div class="hint">Zeruje marżę, robociznę, zużycie eksploatacyjne i koszty dodatkowe — zostaje sam materiał, prąd i amortyzacja.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="dot" style="background:var(--green)"></span>PDF dla znajomego</h2>
+    <div class="field">
+      <label for="note">Notatka <span class="unit">(opcjonalnie, widoczna na PDF)</span></label>
+      <textarea id="note" placeholder="np. Dzięki za zamówienie! Odbiór w weekend."></textarea>
+    </div>
+    <div class="field checkbox-field">
+      <input type="checkbox" id="showBreakdown">
+      <label for="showBreakdown">Pokaż na PDF rozbicie kosztów</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quick-row">
+      <div>
+        <div style="font-weight:600;font-size:13.5px;">Szybka wycena</div>
+        <div class="hint" style="margin:2px 0 0;">Licz bez zapisywania do historii</div>
+      </div>
+      <input type="checkbox" id="quickMode" style="width:20px;height:20px;accent-color:var(--orange);flex:none;">
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="ghost" id="btnReset" type="button">Nowy projekt</button>
+    <button id="btnSave" type="button">Zapisz</button>
+    <button class="primary" id="btnPdf" type="button">Generuj PDF</button>
+  </div>
+  <div class="hint" id="validationHint" style="text-align:center;"></div>
+
+  <div class="card" style="margin-top:20px;">
+    <h2><span class="dot" style="background:var(--text-faint)"></span>Zapisane projekty</h2>
+    <div id="history"><div class="empty-hist">Jeszcze nic tu nie ma — zapisz swoją pierwszą wycenę.</div></div>
+  </div>
+
+  <footer class="note">
+    Dane zapisują się tylko na tym urządzeniu.<br>
+    Na iPhonie: otwórz to jako stronę w Safari i dodaj do ekranu głównego (Udostępnij → Dodaj do ekranu początkowego), żeby mieć ikonę jak od zwykłej aplikacji.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const MATERIALS = {
+    PLA:   {price: 90,    label:'PLA'},
+    PETG:  {price: 41.12, label:'PETG (SUNLU)'},
+    ABS:   {price: 95,    label:'ABS'},
+    ASA:   {price: 130,   label:'ASA'},
+    TPU:   {price: 150,   label:'TPU'},
+    Nylon: {price: 190,   label:'Nylon'},
+    Resin: {price: 260,   label:'Resin'},
+    Inny:  {price: 100,   label:'Inny'}
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    pname: $('pname'), precipient: $('precipient'), material: $('material'),
+    pricePerKg: $('pricePerKg'), weightG: $('weightG'), waste: $('waste'),
+    hours: $('hours'), minutes: $('minutes'), energyPrice: $('energyPrice'),
+    consumablesFee: $('consumablesFee'), laborHours: $('laborHours'), laborRate: $('laborRate'),
+    extraCost: $('extraCost'), margin: $('margin'), costOnly: $('costOnly'),
+    note: $('note'), showBreakdown: $('showBreakdown'), quickMode: $('quickMode'),
+    printerSelect: $('printerSelect'), printerInfo: $('printerInfo'), printerPanel: $('printerPanel'),
+    printerList: $('printerList'), newPrinterName: $('newPrinterName'), newPrinterPower: $('newPrinterPower'),
+    newPrinterPrice: $('newPrinterPrice'), newPrinterLifespan: $('newPrinterLifespan'),
+    totalPrice: $('totalPrice'), stack: $('stack'),
+    legMaterial: $('legMaterial'), legEnergy: $('legEnergy'), legDepreciation: $('legDepreciation'),
+    legConsumables: $('legConsumables'), legLabor: $('legLabor'), legExtra: $('legExtra'), legMargin: $('legMargin'),
+    history: $('history'), validationHint: $('validationHint')
+  };
+
+  let settings = {};
+  let projects = [];
+  let printers = [];
+  let editingId = null;
+  let editingPrinterId = null;
+
+  function fmtPLN(n){
+    if(!isFinite(n)) n = 0;
+    return n.toLocaleString('pl-PL', {style:'currency', currency:'PLN'});
+  }
+
+  async function storageGet(key, fallback){
+    try{
+      const res = await window.storage.get(key, false);
+      if(!res || res.value === undefined || res.value === null) return fallback;
+      return JSON.parse(res.value);
+    }catch(e){ return fallback; }
+  }
+  async function storageSet(key, value){
+    try{ await window.storage.set(key, JSON.stringify(value), false); }
+    catch(e){ console.error('storage set failed', e); }
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+  }
+
+  function labelForMaterial(key){ return (MATERIALS[key] && MATERIALS[key].label) || key; }
+
+  function populateMaterialSelect(){
+    els.material.innerHTML = '';
+    Object.keys(MATERIALS).forEach(key=>{
+      const opt = document.createElement('option');
+      opt.value = key; opt.textContent = MATERIALS[key].label;
+      els.material.appendChild(opt);
+    });
+  }
+
+  function currentPriceForMaterial(name){
+    if(settings.materialPrices && settings.materialPrices[name] != null) return settings.materialPrices[name];
+    return MATERIALS[name] ? MATERIALS[name].price : 100;
+  }
+
+  function getPrinterById(id){ return printers.find(p=>p.id===id); }
+
+  function populatePrinterSelect(){
+    const prevValue = els.printerSelect.value || settings.selectedPrinterId;
+    els.printerSelect.innerHTML = '';
+    if(!printers.length){
+      const opt = document.createElement('option');
+      opt.value=''; opt.textContent='Brak profilu — dodaj poniżej';
+      els.printerSelect.appendChild(opt);
+      settings.selectedPrinterId = '';
+      return;
+    }
+    printers.forEach(p=>{
+      const opt = document.createElement('option');
+      opt.value = p.id; opt.textContent = p.name;
+      els.printerSelect.appendChild(opt);
+    });
+    if(prevValue && printers.some(p=>p.id===prevValue)) els.printerSelect.value = prevValue;
+    else els.printerSelect.value = printers[0].id;
+    settings.selectedPrinterId = els.printerSelect.value;
+  }
+
+  function updatePrinterInfo(){
+    const p = getPrinterById(els.printerSelect.value);
+    if(!p){ els.printerInfo.textContent = 'Dodaj profil drukarki, aby liczyć amortyzację.'; return; }
+    const rate = p.lifespanHours>0 ? p.purchasePrice/p.lifespanHours : 0;
+    els.printerInfo.textContent = p.powerW + ' W · amortyzacja ' + fmtPLN(rate) + '/h przy ' + p.lifespanHours + ' godz. żywotności';
+  }
+
+  function renderPrinterList(){
+    if(!printers.length){ els.printerList.innerHTML = '<div class="empty-hist">Brak zapisanych profili.</div>'; return; }
+    els.printerList.innerHTML = '';
+    printers.forEach(p=>{
+      const rate = p.lifespanHours>0 ? (p.purchasePrice/p.lifespanHours) : 0;
+      const div = document.createElement('div');
+      div.className = 'hist-item';
+      div.innerHTML =
+        '<div class="hist-main">' +
+          '<p class="hist-name">'+escapeHtml(p.name)+'</p>' +
+          '<p class="hist-meta">'+p.powerW+' W · '+fmtPLN(p.purchasePrice)+' / '+p.lifespanHours+' h · amortyzacja '+fmtPLN(rate)+'/h</p>' +
+        '</div>' +
+        '<div class="hist-actions">' +
+          '<button class="icon-btn" data-action="editPrinter" data-id="'+p.id+'" title="Edytuj">&#9998;</button>' +
+          '<button class="icon-btn" data-action="deletePrinter" data-id="'+p.id+'" title="Usuń">&#10005;</button>' +
+        '</div>';
+      els.printerList.appendChild(div);
+    });
+  }
+
+  els.printerList.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-action]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    if(action==='editPrinter'){
+      const p = getPrinterById(id);
+      if(!p) return;
+      editingPrinterId = id;
+      els.newPrinterName.value = p.name;
+      els.newPrinterPower.value = p.powerW;
+      els.newPrinterPrice.value = p.purchasePrice;
+      els.newPrinterLifespan.value = p.lifespanHours;
+      $('printerFormTitle').textContent = 'Edytuj profil';
+      $('btnAddPrinter').textContent = 'Zapisz zmiany';
+    }else if(action==='deletePrinter'){
+      printers = printers.filter(p=>p.id!==id);
+      storageSet('printers', printers);
+      populatePrinterSelect();
+      renderPrinterList();
+      updatePrinterInfo();
+      render();
+    }
+  });
+
+  $('btnAddPrinter').addEventListener('click', ()=>{
+    const name = els.newPrinterName.value.trim();
+    if(!name) return;
+    const powerW = parseFloat(els.newPrinterPower.value) || 0;
+    const purchasePrice = parseFloat(els.newPrinterPrice.value) || 0;
+    const lifespanHours = parseFloat(els.newPrinterLifespan.value) || 5000;
+    if(editingPrinterId){
+      const idx = printers.findIndex(p=>p.id===editingPrinterId);
+      if(idx>=0) printers[idx] = {id: editingPrinterId, name, powerW, purchasePrice, lifespanHours};
+      editingPrinterId = null;
+      $('printerFormTitle').textContent = '+ Nowy profil';
+      $('btnAddPrinter').textContent = 'Dodaj profil';
+    }else{
+      const id = (crypto.randomUUID ? crypto.randomUUID() : 'pr'+Date.now()+Math.random());
+      printers.push({id, name, powerW, purchasePrice, lifespanHours});
+      settings.selectedPrinterId = id;
+    }
+    storageSet('printers', printers);
+    storageSet('settings', settings);
+    els.newPrinterName.value=''; els.newPrinterPower.value=''; els.newPrinterPrice.value=''; els.newPrinterLifespan.value=5000;
+    populatePrinterSelect();
+    renderPrinterList();
+    updatePrinterInfo();
+    render();
+  });
+
+  $('btnManagePrinters').addEventListener('click', ()=>{
+    const isOpen = els.printerPanel.style.display !== 'none';
+    els.printerPanel.style.display = isOpen ? 'none' : 'block';
+    $('btnManagePrinters').textContent = isOpen ? 'Zarządzaj profilami' : 'Zwiń';
+  });
+
+  els.printerSelect.addEventListener('change', ()=>{
+    settings.selectedPrinterId = els.printerSelect.value;
+    storageSet('settings', settings);
+    updatePrinterInfo();
+    render();
+  });
+
+  function getState(){
+    const printer = getPrinterById(els.printerSelect.value) || {name:'', powerW:0, purchasePrice:0, lifespanHours:5000};
+    return {
+      name: els.pname.value.trim(),
+      recipient: els.precipient.value.trim(),
+      material: els.material.value,
+      pricePerKg: parseFloat(els.pricePerKg.value) || 0,
+      weightG: parseFloat(els.weightG.value) || 0,
+      waste: parseFloat(els.waste.value) || 0,
+      hours: parseFloat(els.hours.value) || 0,
+      minutes: parseFloat(els.minutes.value) || 0,
+      energyPrice: parseFloat(els.energyPrice.value) || 0,
+      printerId: printer.id || '',
+      printerName: printer.name || '',
+      powerW: printer.powerW || 0,
+      purchasePrice: printer.purchasePrice || 0,
+      lifespanHours: printer.lifespanHours || 5000,
+      consumablesFee: parseFloat(els.consumablesFee.value) || 0,
+      laborHours: parseFloat(els.laborHours.value) || 0,
+      laborRate: parseFloat(els.laborRate.value) || 0,
+      extraCost: parseFloat(els.extraCost.value) || 0,
+      margin: parseFloat(els.margin.value) || 0,
+      costOnly: els.costOnly.checked,
+      note: els.note.value,
+      showBreakdown: els.showBreakdown.checked
+    };
+  }
+
+  function calc(s){
+    const totalHours = s.hours + s.minutes/60;
+    const weightKg = s.weightG/1000;
+    const wasteFactor = 1 + (s.waste/100);
+    const materialCost = weightKg * s.pricePerKg * wasteFactor;
+    const energyCost = (s.powerW/1000) * totalHours * s.energyPrice;
+    const depreciationCost = s.lifespanHours > 0 ? (s.purchasePrice / s.lifespanHours) * totalHours : 0;
+
+    let consumablesFee = s.consumablesFee;
+    let laborCost = s.laborHours * s.laborRate;
+    let extraCost = s.extraCost;
+    let marginPct = s.margin;
+    if(s.costOnly){
+      consumablesFee = 0; laborCost = 0; extraCost = 0; marginPct = 0;
+    }
+
+    const subtotal = materialCost + energyCost + depreciationCost + consumablesFee + laborCost + extraCost;
+    const marginAmount = subtotal * (marginPct/100);
+    const total = subtotal + marginAmount;
+    return {totalHours, materialCost, energyCost, depreciationCost, consumablesFee, laborCost, extraCost, subtotal, marginAmount, total};
+  }
+
+  function setCostOnlyDisabled(disabled){
+    els.laborHours.disabled = disabled;
+    els.laborRate.disabled = disabled;
+    els.margin.disabled = disabled;
+    els.consumablesFee.disabled = disabled;
+    els.extraCost.disabled = disabled;
+  }
+
+  function render(){
+    const s = getState();
+    const c = calc(s);
+    els.totalPrice.textContent = fmtPLN(c.total);
+    els.legMaterial.textContent = fmtPLN(c.materialCost);
+    els.legEnergy.textContent = fmtPLN(c.energyCost);
+    els.legDepreciation.textContent = fmtPLN(c.depreciationCost);
+    els.legConsumables.textContent = fmtPLN(c.consumablesFee);
+    els.legLabor.textContent = fmtPLN(c.laborCost);
+    els.legExtra.textContent = fmtPLN(c.extraCost);
+    els.legMargin.textContent = fmtPLN(c.marginAmount);
+
+    const base = c.materialCost + c.energyCost + c.depreciationCost + c.consumablesFee + c.laborCost + c.extraCost + c.marginAmount;
+    const segs = els.stack.querySelectorAll('.seg');
+    const parts = [c.materialCost, c.energyCost, c.depreciationCost, c.consumablesFee, c.laborCost, c.extraCost, c.marginAmount];
+    if(base <= 0){
+      segs.forEach((seg,i)=>{ seg.style.flexBasis = i===0 ? '100%' : '0%'; });
+    }else{
+      segs.forEach((seg,i)=>{ seg.style.flexBasis = (parts[i]/base*100)+'%'; });
+    }
+
+    const valid = s.name.length>0 && s.weightG>0;
+    $('btnSave').disabled = !valid || els.quickMode.checked;
+    $('btnPdf').disabled = !valid;
+    if(!valid){
+      els.validationHint.textContent = 'Podaj przynajmniej nazwę projektu i wagę wydruku (g).';
+    }else if(els.quickMode.checked){
+      els.validationHint.textContent = 'Tryb szybki: wynik nie zostanie zapisany do historii.';
+    }else{
+      els.validationHint.textContent = '';
+    }
+  }
+
+  function applyDefaults(){
+    els.energyPrice.value = settings.energyPrice;
+    els.margin.value = settings.margin;
+    els.consumablesFee.value = settings.consumablesFee;
+    els.laborRate.value = settings.laborRate || 0;
+    els.pricePerKg.value = currentPriceForMaterial(els.material.value);
+    if(settings.selectedPrinterId) els.printerSelect.value = settings.selectedPrinterId;
+  }
+
+  function resetForm(keepDefaults){
+    editingId = null;
+    els.pname.value = '';
+    els.precipient.value = '';
+    els.material.value = settings.selectedMaterial || 'PLA';
+    els.weightG.value = '';
+    els.waste.value = 0;
+    els.hours.value = '';
+    els.minutes.value = '';
+    els.extraCost.value = 0;
+    els.laborHours.value = '';
+    els.costOnly.checked = false;
+    setCostOnlyDisabled(false);
+    els.note.value = '';
+    els.showBreakdown.checked = false;
+    if(keepDefaults !== false) applyDefaults();
+    render();
+  }
+
+  els.material.addEventListener('change', ()=>{
+    els.pricePerKg.value = currentPriceForMaterial(els.material.value);
+    settings.selectedMaterial = els.material.value;
+    storageSet('settings', settings);
+    render();
+  });
+
+  els.pricePerKg.addEventListener('change', ()=>{
+    const name = els.material.value;
+    settings.materialPrices[name] = parseFloat(els.pricePerKg.value) || 0;
+    storageSet('settings', settings);
+  });
+  ['energyPrice','margin','consumablesFee','laborRate'].forEach(id=>{
+    els[id].addEventListener('change', ()=>{
+      settings[id] = parseFloat(els[id].value) || 0;
+      storageSet('settings', settings);
+    });
+  });
+
+  els.costOnly.addEventListener('change', ()=>{
+    setCostOnlyDisabled(els.costOnly.checked);
+    render();
+  });
+
+  Object.values(els).forEach(el=>{
+    if(el && (el.tagName==='INPUT' || el.tagName==='SELECT' || el.tagName==='TEXTAREA') && el.id!=='newPrinterName' && el.id!=='newPrinterPower' && el.id!=='newPrinterPrice' && el.id!=='newPrinterLifespan'){
+      el.addEventListener('input', render);
+    }
+  });
+
+  function renderHistory(){
+    if(!projects.length){
+      els.history.innerHTML = '<div class="empty-hist">Jeszcze nic tu nie ma — zapisz swoją pierwszą wycenę.</div>';
+      return;
+    }
+    els.history.innerHTML = '';
+    projects.slice().reverse().forEach(p=>{
+      const c = calc(p);
+      const item = document.createElement('div');
+      item.className = 'hist-item';
+      const h = Math.floor(c.totalHours), m = Math.round((c.totalHours-h)*60);
+      item.innerHTML =
+        '<div class="hist-main">' +
+          '<p class="hist-name">'+escapeHtml(p.name)+'</p>' +
+          '<p class="hist-meta">'+labelForMaterial(p.material)+' · '+p.weightG+' g · '+h+'g '+m+'min'+(p.printerName? ' · '+escapeHtml(p.printerName):'')+'</p>' +
+        '</div>' +
+        '<div class="hist-price">'+fmtPLN(c.total)+'</div>' +
+        '<div class="hist-actions">' +
+          '<button class="icon-btn" data-action="load" data-id="'+p.id+'" title="Wczytaj">&#8635;</button>' +
+          '<button class="icon-btn" data-action="pdf" data-id="'+p.id+'" title="PDF">&#8681;</button>' +
+          '<button class="icon-btn" data-action="delete" data-id="'+p.id+'" title="Usuń">&#10005;</button>' +
+        '</div>';
+      els.history.appendChild(item);
+    });
+  }
+
+  els.history.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-action]');
+    if(!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    const proj = projects.find(p=>p.id===id);
+    if(!proj) return;
+    if(action==='load'){
+      loadProject(proj);
+    }else if(action==='pdf'){
+      generatePDF(proj, calc(proj));
+    }else if(action==='delete'){
+      projects = projects.filter(p=>p.id!==id);
+      storageSet('projects', projects);
+      renderHistory();
+    }
+  });
+
+  function loadProject(p){
+    editingId = p.id;
+    els.pname.value = p.name;
+    els.precipient.value = p.recipient || '';
+    els.material.value = p.material;
+    els.pricePerKg.value = p.pricePerKg;
+    els.weightG.value = p.weightG;
+    els.waste.value = p.waste;
+    els.hours.value = p.hours;
+    els.minutes.value = p.minutes;
+    els.energyPrice.value = p.energyPrice;
+    els.extraCost.value = p.extraCost;
+    els.margin.value = p.margin;
+    els.consumablesFee.value = p.consumablesFee;
+    els.laborHours.value = p.laborHours;
+    els.laborRate.value = p.laborRate;
+    els.costOnly.checked = !!p.costOnly;
+    setCostOnlyDisabled(!!p.costOnly);
+    els.note.value = p.note || '';
+    els.showBreakdown.checked = !!p.showBreakdown;
+    if(p.printerId && printers.some(pr=>pr.id===p.printerId)){
+      els.printerSelect.value = p.printerId;
+    }
+    render();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function saveProject(){
+    const s = getState();
+    if(!(s.name.length>0 && s.weightG>0)) return;
+    if(editingId){
+      const idx = projects.findIndex(p=>p.id===editingId);
+      if(idx>=0) projects[idx] = Object.assign({id:editingId, createdAt: projects[idx].createdAt}, s);
+    }else{
+      s.id = (crypto.randomUUID ? crypto.randomUUID() : 'p'+Date.now()+Math.random());
+      s.createdAt = new Date().toISOString();
+      editingId = s.id;
+      projects.push(s);
+    }
+    storageSet('projects', projects);
+    renderHistory();
+  }
+
+  function generatePDF(p, c){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm', format:'a4'});
+
+    doc.setFillColor(24,26,31);
+    doc.rect(0,0,210,42,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(20);
+    doc.text('Wycena wydruku 3D', 15, 20);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(12);
+    doc.text(p.name || 'Projekt', 15, 30);
+
+    doc.setTextColor(35,35,35);
+    let y = 56;
+    const line = (label, value) => {
+      doc.setFont('helvetica','bold'); doc.setFontSize(11);
+      doc.text(label, 15, y);
+      doc.setFont('helvetica','normal');
+      doc.text(String(value), 75, y);
+      y += 8;
+    };
+    line('Data:', new Date().toLocaleDateString('pl-PL'));
+    if(p.recipient) line('Dla:', p.recipient);
+    line('Materiał:', labelForMaterial(p.material));
+    line('Waga wydruku:', p.weightG + ' g');
+    const h = Math.floor(c.totalHours), m = Math.round((c.totalHours-h)*60);
+    line('Czas druku:', h + ' godz. ' + m + ' min');
+
+    if(p.showBreakdown){
+      y += 3;
+      line('Koszt materiału:', fmtPLN(c.materialCost));
+      line('Koszt energii:', fmtPLN(c.energyCost));
+      line('Amortyzacja sprzętu:', fmtPLN(c.depreciationCost));
+      if(c.consumablesFee>0) line('Zużycie eksploatacyjne:', fmtPLN(c.consumablesFee));
+      if(c.laborCost>0) line('Robocizna:', fmtPLN(c.laborCost));
+      if(c.extraCost>0) line('Dodatkowe koszty:', fmtPLN(c.extraCost));
+    }
+
+    y += 8;
+    doc.setFillColor(255,106,31);
+    doc.roundedRect(15, y, 180, 26, 3, 3, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(13);
+    doc.text('CENA KOŃCOWA', 22, y+10);
+    doc.setFontSize(19);
+    doc.text(fmtPLN(c.total), 22, y+21);
+    y += 38;
+
+    if(p.note){
+      doc.setTextColor(90,90,90);
+      doc.setFont('helvetica','italic');
+      doc.setFontSize(10.5);
+      const noteLines = doc.splitTextToSize(p.note, 180);
+      doc.text(noteLines, 15, y);
+    }
+
+    const safeName = (p.name || 'wycena').replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ ]+/g,'').trim().replace(/\s+/g,'_') || 'wycena';
+    doc.save(safeName + '.pdf');
+  }
+
+  $('btnReset').addEventListener('click', ()=>resetForm(true));
+  $('btnSave').addEventListener('click', saveProject);
+  $('btnPdf').addEventListener('click', ()=>{
+    const check = getState();
+    if(!(check.name.length>0 && check.weightG>0)) return;
+    if(!els.quickMode.checked){
+      saveProject();
+    }
+    const s = getState();
+    const c = calc(s);
+    const projForPdf = Object.assign({}, s, {
+      id: els.quickMode.checked ? '' : editingId,
+      createdAt: new Date().toISOString()
+    });
+    generatePDF(projForPdf, c);
+  });
+
+  async function init(){
+    populateMaterialSelect();
+
+    let loadedSettings = await storageGet('settings', null);
+    settings = Object.assign({
+      margin: 20, energyPrice: 0.85, consumablesFee: 1.50, laborRate: 0,
+      materialPrices: {}, selectedPrinterId: '', selectedMaterial: 'PETG'
+    }, loadedSettings || {});
+    if(!settings.materialPrices) settings.materialPrices = {};
+    if(settings.materialPrices.PETG == null) settings.materialPrices.PETG = 41.12;
+
+    let loadedPrinters = await storageGet('printers', null);
+    if(!loadedPrinters){
+      const seedId = (crypto.randomUUID ? crypto.randomUUID() : 'pr'+Date.now());
+      printers = [{id: seedId, name:'Creality K1', powerW:150, purchasePrice:1779.10, lifespanHours:5000}];
+      settings.selectedPrinterId = seedId;
+      await storageSet('printers', printers);
+    }else{
+      printers = loadedPrinters;
+    }
+
+    await storageSet('settings', settings);
+    projects = await storageGet('projects', []);
+
+    populatePrinterSelect();
+    resetForm(true);
+    renderPrinterList();
+    updatePrinterInfo();
+    renderHistory();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
